@@ -15,4 +15,8 @@ Current optimization is done using Adam optimizer. Results for the moment are no
 But results are expected to be better if ImageNet pre-trained weights are used.
 
 # Requirements
-GTX 1070, Cuda 7.5+, Cudnn 5.0+, tensorflow v10+, and roi_pooling_op.so installed - check my other git repository [here] (https://github.com/alfonsolink/tensorflow_user_ops) for the girshick roi_pooling tensorflow wrap)
+GTX 1070  <br />
+Cuda 7.5+  <br />
+Cudnn 5.0+  <br />
+tensorflow v10+  <br />
+and roi_pooling_op.so installed - check my other git repository [here] (https://github.com/alfonsolink/tensorflow_user_ops) for the girshick roi_pooling tensorflow wrap)
