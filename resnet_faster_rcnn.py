@@ -302,7 +302,7 @@ init = tf.initialize_all_variables()
 with tf.Session() as sess:
   sess.run(init, feed_dict = {gate : [0.0]})
   #saver_all.restore(sess,"./z7_300k.ckpt")
-  saver_all.restore(sess, "./z7_end_to_end_girschick.ckpt")
+  #saver_all.restore(sess, "./z7_end_to_end_girschick.ckpt")
   for x in range(epoch):
       rand_id = np.random.permutation(np.arange(run_size)) 
       for i in range(run_size):
