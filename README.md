@@ -18,4 +18,4 @@ GTX 1070  <br />
 Cuda 7.5+  <br />
 Cudnn 5.0+  <br />
 tensorflow v10+  <br />
-and roi_pooling_op.so installed - check my other git repository [here] (https://github.com/alfonsolink/tensorflow_user_ops) for the girshick roi_pooling tensorflow wrap)
+and roi_pooling_op.so installed - check my other git repository [here] (https://github.com/alfonsolink/tensorflow_user_ops) for the girshick roi_pooling tensorflow wrap.
