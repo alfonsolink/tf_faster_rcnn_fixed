@@ -9,7 +9,7 @@ the RPN is set right after conv4, followed by ROI Pooling. Layers conv5 and up s
 created by A. Labao under Pros Naval of CVMIG Lab, University of the Philippines
 
 # Usage
-Specify the image and ground-truth folder locations in resnet_faster_rcnn.py, and run it directly in python (no need for setup). Ground truth is in a csv file of the same number as the image, with the format x1 y1 x2 y2 label for each object.
+Specify the image and ground-truth folder locations in resnet_faster_rcnn.py, and run it directly in python (no need for setup). Ground truth is a csv file of the same filename number as the image it references, with the format x1 y1 x2 y2 label for each object in the csv file.
 
 Current optimization is done using Adam optimizer. Results for the moment are not yet able to match the map scores in the original papers - mostly due to lack of ImageNet pre-training.
 But results are expected to be better if ImageNet pre-trained weights are used.
