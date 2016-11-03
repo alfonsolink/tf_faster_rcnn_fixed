@@ -1,17 +1,15 @@
 # tf_faster_rcnn
 
-This is an experimental tensorflow implementation of Faster R-CNN, by (Ren, Shaoqing, et al. "Faster R-CNN: Towards real-time object detection with region proposal networks." Advances in neural information processing systems. 2015.)<br />
+-- An experimental tensorflow implementation of Faster R-CNN, by (Ren, Shaoqing, et al. "Faster R-CNN: Towards real-time object detection with region proposal networks." Advances in neural information processing systems. 2015.)<br />
 Layers are based on py-faster-rcnn (https://github.com/rbgirshick/py-faster-rcnn), but modified to suit them to tensorflow's mostly NHWC layers.
 
 Base trunk is a Residual Network, with options for either 50, 101, or 152 layers. Following He, Kaiming, et al. "Deep residual learning for image recognition." arXiv preprint arXiv:1512.03385 (2015)., 
 the RPN is set right after conv4, followed by ROI Pooling. Layers conv5 and up serve as the "fully-connected" layers.
 
-created by A. Labao under Pros Naval of CVMIG Lab, University of the Philippines
+created by A. Labao under Pros Naval of CVMIG Lab, Univ of the Philippines
 
 # Usage
-Specify image and ground-truth folder locations in resnet_faster_rcnn.py, and run it directly in python (no need for setup). Ground truth is a csv file referencing an image. Each row in the csv file has to match an object in the image, with the format (x1 y1 x2 y2 label) for each object bounding box.  Images and bounding boxes are to be rescaled to H X W of 600 X 1000 as pre-processing.
-
-Current optimization is done using Momentum Optimizer with Nesterov Momentum
+Specify image and ground-truth folder locations in resnet_faster_rcnn.py, and run it directly in python (no need for setup). Ground truth is a csv file referencing an image. Each row in the csv file has to match an object in the image, with the format (x1 y1 x2 y2 label) for each object bounding box.  Images and bounding boxes are to be rescaled to H X W of 600 X 1000 as pre-processing. Current optimization is done using Momentum Optimizer with Nesterov Momentum
 
 # Requirements
 GTX 1070  <br />
