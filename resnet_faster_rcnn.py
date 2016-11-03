@@ -21,11 +21,11 @@ gt_files = sorted(glob.glob('/home/alfonso/VOCdevkit2012/VOC2012/Annotations_3/*
 # hyperparameter settings
 resnet_length = 101 # resnet lengths can be {50, 101, 152}
 _tr_bn = True # train BN parameters
-_add_l2 = False # include weight decay of 1e-4: set to False
+_add_l2 = True # include weight decay of 1e-4: set to False
 _rpn_stat = True # train RPN weights
 _rcnn_stat = True # train RCNN weights
 _fc_stat = True # train "fc" -- which are hconv5 residual layers and up
-_layer0_stat = True # train hconv2
+_layer0_stat = False # train hconv2
 _layer1_stat = True # train hconv3
 _layer2_stat = True # train hconv4
 lr_w = 0.001 # learning rate for weights
@@ -100,27 +100,28 @@ def resnet(inpt, n, loc):
   
   with tf.variable_scope('conv1'):
     conv1 = conv_layer(inpt, [7, 7, 3, 64], 2, loc, tr_stat = _layer0_stat, \
-        bn_tr_stat = _tr_bn, add_l2_stat = _add_l2)
+        bn_tr_stat = _tr_bn, add_l2_stat = _add_l2, state = "split")
     max1 = max_pool_3x3(conv1)
+    layers.append(max1)
   
   for i in range (num_conv[0]):
     with tf.variable_scope('conv2_%d' % (i + 1)):
-      conv2 = residual_block(max1, 64, False, loc, tr_stat = _layer0_stat, \
-          bn_tr_stat = _tr_bn, add_l2_stat = _add_l2)
+      conv2 = residual_block(layers[-1], 64, False, loc, tr_stat = _layer0_stat, \
+          bn_tr_stat = _tr_bn, add_l2_stat = _add_l2, branch = "near")
       layers.append(conv2)
   
   for i in range (num_conv[1]):
     down_sample = True if i == 0 else False
     with tf.variable_scope('conv3_%d' % (i + 1)):
       conv3 = residual_block(layers[-1], 128, down_sample, loc, tr_stat = _layer1_stat, \
-          bn_tr_stat = _tr_bn, add_l2_stat = _add_l2)
+          bn_tr_stat = _tr_bn, add_l2_stat = _add_l2, branch = "far")
       layers.append(conv3)
   
   for i in range (num_conv[2]):
     down_sample = True if i == 0 else False
     with tf.variable_scope('conv4_%d' % (i + 1)):
       conv4 = residual_block(layers[-1], 256, down_sample, loc, tr_stat = _layer2_stat, \
-          bn_tr_stat = _tr_bn, add_l2_stat = _add_l2)
+          bn_tr_stat = _tr_bn, add_l2_stat = _add_l2, branch = "far")
       layers.append(conv4)
   
   return layers[-1]
@@ -187,7 +188,7 @@ rpn_loss_bbox = tf.mul(tf.reduce_mean(tf.reduce_sum(tf.mul(rpn_bbox_outside_weig
     tf.mul(tf.mul(tf.pow(tf.mul(rpn_bbox_inside_weights, \
         tf.sub(rpn_bbox_pred, rpn_bbox_targets)),2),0.5*sigma1), smoothL1_sign), \
     tf.mul(tf.sub(tf.abs(tf.sub(rpn_bbox_pred, rpn_bbox_targets)),0.5/sigma1),\
-        tf.abs(smoothL1_sign-1)))), reduction_indices=[1,2])),10)
+        tf.abs(smoothL1_sign-1)))), reduction_indices=[1,2])),1)
 rpn_loss_bbox_label = rpn_loss_bbox
 zero_count, one_count = tf.py_func(bbox_counter, [rpn_labels_ind], [tf.float32, tf.float32])
 
@@ -217,9 +218,9 @@ with tf.name_scope("rcnn"):
   pool5 = tf.transpose(pool5, [0,2,3,1]) #revert back to NHWC
   h_fc6 = tf.reshape(pool5, [-1, 7, 7, 1024])
   
-  r7 = residual_block(h_fc6, 512, False, "rcnn", tr_stat = _rcnn_stat, bn_tr_stat = _tr_bn, add_l2_stat = _add_l2)
-  r8 = residual_block(r7, 512, False, "rcnn", tr_stat = _rcnn_stat, bn_tr_stat = _tr_bn, add_l2_stat = _add_l2)
-  r9 = residual_block(r8, 512, False, "rcnn", tr_stat = _rcnn_stat, bn_tr_stat = _tr_bn, add_l2_stat = _add_l2)
+  r7 = residual_block(h_fc6, 512, False, "rcnn", tr_stat = _rcnn_stat, bn_tr_stat = _tr_bn, add_l2_stat = _add_l2, branch = "near")
+  r8 = residual_block(r7, 512, False, "rcnn", tr_stat = _rcnn_stat, bn_tr_stat = _tr_bn, add_l2_stat = _add_l2, branch = "far")
+  r9 = residual_block(r8, 512, False, "rcnn", tr_stat = _rcnn_stat, bn_tr_stat = _tr_bn, add_l2_stat = _add_l2, branch = "far")
   gp = tf.reduce_mean(r9, [1,2])
 
 with tf.name_scope("fc"):
@@ -251,7 +252,8 @@ loss_bbox = tf.mul(tf.reduce_mean(tf.reduce_sum(tf.mul(rcnn_bbox_outside_w,tf.ad
 #loss2 = loss_cls + loss_bbox #+ ((tf.add_n(tf.get_collection('weight_losses_trunk')) + tf.add_n(tf.get_collection('weight_losses_rcnn')))/rpn_batch_size)
 #loss3 = rpn_loss_cls + rpn_loss_bbox #+ tf.add_n(tf.get_collection('weight_losses_rpn'))/256
 #loss4 = loss_cls + loss_bbox #+ tf.add_n(tf.get_collection('weight_losses_rcnn'))/rpn_batch_size
-total_loss = rpn_loss_cls + rpn_loss_bbox + loss_cls + loss_bbox 
+total_loss = rpn_loss_cls + rpn_loss_bbox + loss_cls + loss_bbox + tf.add_n(tf.get_collection('weight_losses_trunk')) + tf.add_n(tf.get_collection('weight_losses_rpn')) +\
+     tf.add_n(tf.get_collection('weight_losses_rcnn')) +  tf.add_n(tf.get_collection('weight_losses_fc'))
 
 #VARIABLES, OPTIMIZERS, AND LOSSES
 trunk_weights = [v for v in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "trunk") if "weights" in v.name]
@@ -263,24 +265,27 @@ rcnn_biases = [v for v in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "r
 fc_weights = [v for v in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "fc") if "weights" in v.name]
 fc_biases = [v for v in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "fc") if "biases" in v.name]
 
+lr = tf.placeholder(tf.float32)
 var_list1_w =  rcnn_weights + fc_weights + trunk_weights + rpn_weights
 var_list1_b = rcnn_biases + fc_biases + trunk_biases + rpn_biases
-opt1_w = tf.train.AdamOptimizer(lr_w)
-opt1_b = tf.train.AdamOptimizer(lr_b)
+opt1_w = tf.train.MomentumOptimizer(lr, momentum=0.9, use_nesterov=True)
+opt1_b = tf.train.MomentumOptimizer(lr*2, momentum=0.9, use_nesterov=True)
 grads1 = tf.gradients(total_loss,  var_list1_w + var_list1_b)
 grads1_w = grads1[:len(var_list1_w)]
 grads1_b = grads1[len(var_list1_w):]
 train_op1_w = opt1_w.apply_gradients(zip(grads1_w, var_list1_w))
 train_op1_b = opt1_b.apply_gradients(zip(grads1_b, var_list1_b))
-first_train_op = tf.group(train_op1_w, train_op1_b)
+batchnorm_updates = tf.get_collection('update_ops')
+batchnorm_updates_op = tf.group(*batchnorm_updates)
+first_train_op = tf.group(train_op1_w, train_op1_b, batchnorm_updates_op)
 
 anchor_fraction = one_count / (zero_count + one_count)
 
 #TRAINING
 
-trunk_vars = [v for v in tf.all_variables() if np.logical_and("trunk" in v.name, "Adam" not in v.name)]
-rpn_vars = [v for v in tf.all_variables() if np.logical_and("rpn" in v.name, "Adam" not in v.name)]
-rcnn_vars = [v for v in tf.all_variables() if np.logical_and("rcnn" in v.name, "Adam" not in v.name)]
+trunk_vars = [v for v in tf.all_variables() if np.logical_and("trunk" in v.name, "Momentum" not in v.name)]
+rpn_vars = [v for v in tf.all_variables() if np.logical_and("rpn" in v.name, "Momentum" not in v.name)]
+rcnn_vars = [v for v in tf.all_variables() if np.logical_and("rcnn" in v.name, "Momentum" not in v.name)]
 saver_all_trunkrcnn = tf.train.Saver(trunk_vars + rcnn_vars)
 saver_all = tf.train.Saver()
 
@@ -301,8 +306,10 @@ epoch = 40
 init = tf.initialize_all_variables()
 with tf.Session() as sess:
   sess.run(init, feed_dict = {gate : [0.0]})
+  #saver_all_trunkrcnn.restore(sess, "./imagenet_resnet.ckpt")
+  #saver_all_trunkrcnn.restore(sess, "./caltech_160k.ckpt")
   #saver_all.restore(sess,"./z7_300k.ckpt")
-  #saver_all.restore(sess, "./z7_end_to_end_girschick.ckpt")
+  saver_all.restore(sess, "./z7_end_to_end_girschick.ckpt")
   for x in range(epoch):
       rand_id = np.random.permutation(np.arange(run_size)) 
       for i in range(run_size):
@@ -319,11 +326,14 @@ with tf.Session() as sess:
           img_train, gt_train = flip(img_train, gt_train, im_info)
           img_train = np.reshape(img_train, [1, 600, 1000, 3])
           
+          decay = np.floor(x/2)
+          learn_rate = 0.001 * np.power(0.1,decay)
+          
           #RUN TRAIN OP
           _, rpnlosscls, rpnlossbbox, losscls, lossbbox, rpnaccuracy, rcnnaccruacy, anchorfraction, anchorcount = \
               sess.run([first_train_op, rpn_loss_cls, rpn_loss_bbox, loss_cls, \
                   loss_bbox, rpn_cls_accuracy, end_cls_accuracy, anchor_fraction, o_cls], \
-              feed_dict = {gate: [0.0], prep_img : img_train, gt_box : gt_train})
+              feed_dict = {lr : learn_rate, gate: [0.0], prep_img : img_train, gt_box : gt_train})
           
           accu_rpn_losscls += rpnlosscls
           accu_rpn_lossbbox += rpnlossbbox
@@ -344,7 +354,7 @@ with tf.Session() as sess:
               print "average rpn accuracy:     " + str(accu_rpn_accuracy/100)
               print "average rcnn accuracy:    " + str(accu_rcnn_accuracy/100)
               u_anchors, indexes, pred_, lb_ = sess.run([unique_rpn_cls, o_cls_ind, pred, rcnn_labels_ind], \
-                  feed_dict = {gate: [0.0], prep_img : img_train, gt_box : gt_train})
+                  feed_dict = {lr : learn_rate, gate: [0.0], prep_img : img_train, gt_box : gt_train})
               print "unique_anchors:           " + str(u_anchors/1)
               print "average correct anchors:  " + str(accu_anchor_count/100)
               print "average anchor_fraction:  " + str(accu_anchor_fraction/100)
@@ -381,3 +391,5 @@ with tf.Session() as sess:
               print ""
            
   sess.close()
+
+
