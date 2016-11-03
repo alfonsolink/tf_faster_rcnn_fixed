@@ -1,41 +1,55 @@
 import tensorflow as tf
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.training import moving_averages
 import numpy as np
 import cv2
 from math import ceil
 
 conv_feat_shape = [38, 63, 2048]
-wd = 0.0005
+wd = 1e-4
 
-def conv_layer(inpt, filter_shape, stride, loc, tr_stat, bn_tr_stat, add_l2_stat):
+
+def conv_layer(inpt, filter_shape, stride, loc, tr_stat, bn_tr_stat, add_l2_stat, state):
     out_channels = filter_shape[3]
     filter_ = weight_variable(filter_shape, loc, tr_stat, add_l2_stat)
-    conv = tf.nn.conv2d(inpt, filter=filter_, strides=[1, stride, stride, 1], padding="SAME")
+    conv = tf.nn.conv2d(inpt, filter_, strides=[1, stride, stride, 1], padding="SAME")
+    #mean, var = tf.nn.moments(conv, axes=[0,1,2])
+    moving_mean = tf.Variable(tf.zeros([out_channels]), trainable=False, name="weights")
+    moving_var = tf.Variable(tf.ones([out_channels]), trainable=False, name="weights")
+    beta = tf.Variable(tf.zeros([out_channels]), trainable=bn_tr_stat, name="weights")
+    gamma = tf.Variable(tf.ones([out_channels]), trainable=bn_tr_stat, name="weights")
     mean, var = tf.nn.moments(conv, axes=[0,1,2])
-    beta = tf.Variable(tf.zeros([out_channels]), trainable=bn_tr_stat)
-    gamma = weight_variable([out_channels], loc, bn_tr_stat, add_l2_stat)
-    batch_norm = tf.nn.batch_norm_with_global_normalization(
-        conv, mean, var, beta, gamma, 0.001,
-        scale_after_normalization=True)
-    out = tf.nn.relu(batch_norm)
+    update_moving_mean = moving_averages.assign_moving_average(moving_mean, mean, 0.9997)
+    update_moving_variance = moving_averages.assign_moving_average(moving_var, var, 0.9997)
+    tf.add_to_collection('update_ops', update_moving_mean)
+    tf.add_to_collection('update_ops', update_moving_variance)
+    train = tf.convert_to_tensor(True, dtype='bool')
+    mean, var = control_flow_ops.cond(train, lambda: (mean, var), lambda: (moving_mean, moving_var))
+    batch_norm = tf.nn.batch_normalization(conv, mean=mean, variance=var, offset=beta, scale=gamma, variance_epsilon=1e-5)
+    if state == "split":
+        out = batch_norm
+    elif state == "normal":
+        out = tf.nn.relu(batch_norm)
     return out
 
-def residual_block(inpt, output_depth, down_sample, loc, tr_stat, bn_tr_stat, add_l2_stat, projection=False):
+def residual_block(inpt, output_depth, down_sample, loc, tr_stat, bn_tr_stat, add_l2_stat, branch):
     input_depth = inpt.get_shape().as_list()[3]
-    if down_sample:
-      filter_ = [1,2,2,1]
-      inpt = tf.nn.max_pool(inpt, ksize=filter_, strides=filter_, padding='SAME')
-    conv1 = conv_layer(inpt, [1, 1, input_depth, output_depth], 1, loc, tr_stat, bn_tr_stat, add_l2_stat)
-    conv2 = conv_layer(conv1, [3, 3, output_depth, output_depth], 1, loc, tr_stat, bn_tr_stat, add_l2_stat)
-    conv3 = conv_layer(conv2, [1, 1, output_depth, output_depth * 4], 1, loc, tr_stat, bn_tr_stat, add_l2_stat)
-    if input_depth != (output_depth * 4):
-        if projection:
-            input_layer = conv_layer(inpt, [1, 1, input_depth, output_depth], 2, loc, tr_stat, bn_tr_stat)
-        else:
-            input_layer = tf.pad(inpt, [[0,0], [0,0], [0,0], [0, (output_depth * 4) - input_depth]])
+    if np.logical_and(input_depth != (output_depth * 4), branch != "near"):
+        input_layer = conv_layer(inpt, [1, 1, input_depth, output_depth * 4], 2, loc, tr_stat, bn_tr_stat, add_l2_stat, "split")
+    elif np.logical_and(input_depth != (output_depth * 4), branch == "near"):
+        input_layer = conv_layer(inpt, [1, 1, input_depth, output_depth * 4], 1, loc, tr_stat, bn_tr_stat, add_l2_stat, "split")
     else:
       input_layer = inpt
+    if down_sample:
+        filter_ = [1,2,2,1]
+        inpt = tf.nn.max_pool(inpt, ksize=filter_, strides=filter_, padding='SAME')
+    conv1 = conv_layer(inpt, [1, 1, input_depth, output_depth], 1, loc, tr_stat, bn_tr_stat, add_l2_stat, "normal")
+    conv2 = conv_layer(conv1, [3, 3, output_depth, output_depth], 1, loc, tr_stat, bn_tr_stat, add_l2_stat, "normal")
+    conv3 = conv_layer(conv2, [1, 1, output_depth, output_depth * 4], 1, loc, tr_stat, bn_tr_stat, add_l2_stat, "split")
     res = conv3 + input_layer
-    return res
+    return tf.nn.relu(res)
+
+
 
 def weight_variable(shape, loc, tr_stat, add_l2_stat):
   initial = tf.truncated_normal(shape, stddev=0.01)
@@ -75,7 +89,7 @@ def bias_variable(shape, loc, tr_stat, add_l2_stat):
 
 def weight_variable_bbox(shape, loc, tr_stat, add_l2_stat):
   initial = tf.truncated_normal(shape, stddev=0.001)
-  weight_decay = tf.mul(tf.nn.l2_loss(initial), wd)
+  weight_decay = tf.mul(tf.nn.l2_loss(initial), 0.0001)
   if np.logical_and(add_l2_stat == True, loc == "base"):
       tf.add_to_collection('weight_losses_base', weight_decay)
   elif np.logical_and(add_l2_stat == True, loc == "trunk"):
@@ -167,38 +181,4 @@ def flip(img, gt, im_info):
     f_gt = f_gt
     return f_img, f_gt.astype(np.int64)
 
-def get_deconv_filter(f_shape):
-    width = f_shape[0]
-    height = f_shape[0]
-    f = ceil(width/2.0)
-    c = (2 * f - 1 - f % 2) / (2.0 * f)
-    bilinear = np.zeros([f_shape[0], f_shape[1]])
-    for x in range(width):
-        for y in range(height):
-            value = (1 - abs(x / f - c)) * (1 - abs(y / f - c))
-            bilinear[x, y] = value
-    weights = np.zeros(f_shape)
-    for i in range(f_shape[2]):
-        weights[:, :, i, i] = bilinear
-    init = tf.constant_initializer(value=weights, dtype=tf.float32)
-    return tf.get_variable(name="up_filter", initializer=init, shape=weights.shape)
 
-def upscore_layer(bottom, shape, num_classes, name, ksize=4, stride=1):
-    strides = [1, stride, stride, 1]
-    with tf.variable_scope(name):
-        in_features = bottom.get_shape()[3].value
-        if shape is None:
-            # Compute shape out of Bottom
-            in_shape = tf.shape(bottom)
-            h = ((in_shape[1] - 1) * stride) + 1
-            w = ((in_shape[2] - 1) * stride) + 1
-            new_shape = [in_shape[0], h, w, num_classes]
-        else:
-            new_shape = [shape[0], shape[1], shape[2], num_classes]
-        output_shape = tf.pack(new_shape)
-        f_shape = [ksize, ksize, num_classes, in_features]
-        num_input = ksize * ksize * in_features / stride
-        stddev = (2 / num_input)**0.5
-        weights = get_deconv_filter(f_shape)
-        deconv = tf.nn.conv2d_transpose(bottom, weights, output_shape, strides=strides, padding='SAME')
-    return deconv
