@@ -22,4 +22,4 @@ and roi_pooling_op.so installed - check my other git repository [here] (https://
 # Notes:
 this has no dynamic tensors accdg. to image size -- all images are rescaled to 600 x 1000, I'll come up with a version that has dynamic tensors soon
 
-results are much better if network is loaded with pre-trained imagenet weights
+results are much better if network is loaded with pre-trained imagenet weights, which can be downloaded [here] (https://1drv.ms/f/s!AtPFjf_hfC81kUrPD2Kazg1Gtkz6) for a simple saver.restore().
