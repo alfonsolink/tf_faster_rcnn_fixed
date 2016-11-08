@@ -18,3 +18,8 @@ Cuda 7.5+  <br />
 Cudnn 5.0+  <br />
 tensorflow v10+  <br />
 and roi_pooling_op.so installed - check my other git repository [here] (https://github.com/alfonsolink/tensorflow_user_ops) for the girshick roi_pooling tensorflow wrap.
+
+# Notes:
+this has no dynamic tensors accdg. to image size -- all images are rescaled to 600 x 1000, I'll come up with a version that has dynamic tensors soon
+
+results are much better if network is loaded with pre-trained imagenet weights
