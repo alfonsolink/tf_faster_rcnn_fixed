@@ -20,8 +20,6 @@ tensorflow v10+  <br />
 and roi_pooling_op.so installed - check my other git repository [here] (https://github.com/alfonsolink/tensorflow_user_ops) for the girshick roi_pooling tensorflow wrap.
 
 # Notes:
-this has no dynamic tensors accdg. to image size -- all images are rescaled to 600 x 1000, I'll come up with a version that has dynamic tensors soon. 
-
 training results are going to be better if input images have dynamic sizes, which is implemented in the the other repo [here](https://github.com/alfonsolink/tf_faster_rcnn_dynamic)
 
 results are much better if network is loaded with pre-trained imagenet weights, which can be downloaded [here](https://1drv.ms/f/s!AtPFjf_hfC81kUrPD2Kazg1Gtkz6) for a simple saver.restore().
