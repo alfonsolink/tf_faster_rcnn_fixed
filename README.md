@@ -1,6 +1,6 @@
 # tf_faster_rcnn
 
--- An experimental tensorflow implementation of Faster R-CNN, by (Ren, Shaoqing, et al. "Faster R-CNN: Towards real-time object detection with region proposal networks." Advances in neural information processing systems. 2015.)<br />
+-- experimental tensorflow implementation of Faster R-CNN, by (Ren, Shaoqing, et al. "Faster R-CNN: Towards real-time object detection with region proposal networks." Advances in neural information processing systems. 2015.)<br />
 Layers are based on py-faster-rcnn (https://github.com/rbgirshick/py-faster-rcnn), but modified to suit them to tensorflow's mostly NHWC layers.
 
 Base trunk is a Residual Network, with options for either 50, 101, or 152 layers. Following He, Kaiming, et al. "Deep residual learning for image recognition." arXiv preprint arXiv:1512.03385 (2015)., 
@@ -20,6 +20,8 @@ tensorflow v10+  <br />
 and roi_pooling_op.so installed - check my other git repository [here] (https://github.com/alfonsolink/tensorflow_user_ops) for the girshick roi_pooling tensorflow wrap.
 
 # Notes:
-this has no dynamic tensors accdg. to image size -- all images are rescaled to 600 x 1000, I'll come up with a version that has dynamic tensors soon
+this has no dynamic tensors accdg. to image size -- all images are rescaled to 600 x 1000, I'll come up with a version that has dynamic tensors soon. 
 
-results are much better if network is loaded with pre-trained imagenet weights, which can be downloaded [here] (https://1drv.ms/f/s!AtPFjf_hfC81kUrPD2Kazg1Gtkz6) for a simple saver.restore().
+training results are going to be better if input images have dynamic sizes, which is implemented in the the other repo [here](https://github.com/alfonsolink/tf_faster_rcnn_dynamic)
+
+results are much better if network is loaded with pre-trained imagenet weights, which can be downloaded [here](https://1drv.ms/f/s!AtPFjf_hfC81kUrPD2Kazg1Gtkz6) for a simple saver.restore().
