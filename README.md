@@ -1,5 +1,7 @@
 # tf_faster_rcnn
 
+note: this is an old repo of tf_faster_rcnn. training results are going to be better if input images have dynamic sizes, which is implemented in the the other repo [here](https://github.com/alfonsolink/tf_faster_rcnn_dynamic)
+
 -- experimental tensorflow implementation of Faster R-CNN, by (Ren, Shaoqing, et al. "Faster R-CNN: Towards real-time object detection with region proposal networks." Advances in neural information processing systems. 2015.)<br />
 Layers are based on py-faster-rcnn (https://github.com/rbgirshick/py-faster-rcnn), but modified to suit them to tensorflow's mostly NHWC layers.
 
@@ -20,6 +22,5 @@ tensorflow v10+  <br />
 and roi_pooling_op.so installed - check my other git repository [here] (https://github.com/alfonsolink/tensorflow_user_ops) for the girshick roi_pooling tensorflow wrap.
 
 # Notes:
-training results are going to be better if input images have dynamic sizes, which is implemented in the the other repo [here](https://github.com/alfonsolink/tf_faster_rcnn_dynamic)
 
-results are much better if network is loaded with pre-trained imagenet weights, which can be downloaded [here](https://1drv.ms/f/s!AtPFjf_hfC81kUrPD2Kazg1Gtkz6) for a simple saver.restore().
+results are also much better if network is loaded with pre-trained imagenet weights, which can be downloaded [here](https://1drv.ms/f/s!AtPFjf_hfC81kUrPD2Kazg1Gtkz6) for a simple saver_all_trunkrcnn.restore().
